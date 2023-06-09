@@ -18,7 +18,7 @@ import "github.com/goravel/minio"
 
 "providers": []foundation.ServiceProvider{
     ...
-    &sms.ServiceProvider{},
+    &minio.ServiceProvider{},
 }
 ```
 
