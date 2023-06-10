@@ -30,17 +30,22 @@ type Minio struct {
 	config   config.Config
 	instance *minio.Client
 	bucket   string
+	disk     string
 	url      string
 }
 
-func NewMinio(ctx context.Context, config config.Config) (*Minio, error) {
-	key := config.GetString("minio.key")
-	secret := config.GetString("minio.secret")
-	region := config.GetString("minio.region")
-	bucket := config.GetString("minio.bucket")
-	diskUrl := config.GetString("minio.url")
-	ssl := config.GetBool("minio.ssl", false)
-	endpoint := config.GetString("minio.endpoint")
+func NewMinio(ctx context.Context, config config.Config, disk string) (*Minio, error) {
+	key := config.GetString(fmt.Sprintf("filesystems.disks.%s.key", disk))
+	secret := config.GetString(fmt.Sprintf("filesystems.disks.%s.secret", disk))
+	region := config.GetString(fmt.Sprintf("filesystems.disks.%s.region", disk))
+	bucket := config.GetString(fmt.Sprintf("filesystems.disks.%s.bucket", disk))
+	diskUrl := config.GetString(fmt.Sprintf("filesystems.disks.%s.url", disk))
+	ssl := config.GetBool(fmt.Sprintf("filesystems.disks.%s.ssl", disk), false)
+	endpoint := config.GetString(fmt.Sprintf("filesystems.disks.%s.endpoint", disk))
+	if key == "" || secret == "" || bucket == "" || diskUrl == "" || endpoint == "" {
+		return nil, fmt.Errorf("please set %s configuration first", disk)
+	}
+
 	endpoint = strings.TrimPrefix(endpoint, "http://")
 	endpoint = strings.TrimPrefix(endpoint, "https://")
 
@@ -50,7 +55,7 @@ func NewMinio(ctx context.Context, config config.Config) (*Minio, error) {
 		Region: region,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("init minio disk error: %s", err)
+		return nil, fmt.Errorf("init %s disk error: %s", disk, err)
 	}
 
 	return &Minio{
@@ -58,6 +63,7 @@ func NewMinio(ctx context.Context, config config.Config) (*Minio, error) {
 		config:   config,
 		instance: client,
 		bucket:   bucket,
+		disk:     disk,
 		url:      diskUrl,
 	}, nil
 }
@@ -326,9 +332,9 @@ func (r *Minio) TemporaryUrl(file string, time time.Time) (string, error) {
 }
 
 func (r *Minio) WithContext(ctx context.Context) filesystem.Driver {
-	driver, err := NewMinio(ctx, r.config)
+	driver, err := NewMinio(ctx, r.config, r.disk)
 	if err != nil {
-		color.Redf("[filesystem] init minio disk fail: %+v\n", err)
+		color.Redf("init %s disk fail: %v\n", r.disk, err)
 
 		return nil
 	}

@@ -32,17 +32,17 @@ func TestStorage(t *testing.T) {
 
 	mockConfig := &configmocks.Config{}
 	mockConfig.On("GetString", "app.timezone").Return("UTC")
-	mockConfig.On("GetString", "minio.driver").Return("minio")
-	mockConfig.On("GetString", "minio.region").Return("")
-	mockConfig.On("GetBool", "minio.ssl", false).Return(false)
-	mockConfig.On("GetString", "minio.key").Return(os.Getenv("MINIO_ACCESS_KEY_ID"))
-	mockConfig.On("GetString", "minio.secret").Return(os.Getenv("MINIO_ACCESS_KEY_SECRET"))
-	mockConfig.On("GetString", "minio.bucket").Return(os.Getenv("MINIO_BUCKET"))
+	mockConfig.On("GetString", "filesystems.disks.minio.driver").Return("minio")
+	mockConfig.On("GetString", "filesystems.disks.minio.region").Return("")
+	mockConfig.On("GetBool", "filesystems.disks.minio.ssl", false).Return(false)
+	mockConfig.On("GetString", "filesystems.disks.minio.key").Return(os.Getenv("MINIO_ACCESS_KEY_ID"))
+	mockConfig.On("GetString", "filesystems.disks.minio.secret").Return(os.Getenv("MINIO_ACCESS_KEY_SECRET"))
+	mockConfig.On("GetString", "filesystems.disks.minio.bucket").Return(os.Getenv("MINIO_BUCKET"))
 
 	minioPool, minioResource, err := initMinioDocker(mockConfig)
 
 	var driver contractsfilesystem.Driver
-	url := mockConfig.GetString("minio.url")
+	url := mockConfig.GetString("filesystems.disks.minio.url")
 
 	tests := []struct {
 		name  string
@@ -378,7 +378,7 @@ func TestStorage(t *testing.T) {
 		},
 	}
 
-	driver, err = NewMinio(context.Background(), mockConfig)
+	driver, err = NewMinio(context.Background(), mockConfig, "minio")
 	assert.NotNil(t, driver)
 	assert.Nil(t, err)
 	for _, test := range tests {
@@ -468,9 +468,9 @@ func initMinioDocker(mockConfig *configmocks.Config) (*dockertest.Pool, *dockert
 		return nil, nil, err
 	}
 
-	key := mockConfig.GetString("minio.key")
-	secret := mockConfig.GetString("minio.secret")
-	bucket := mockConfig.GetString("minio.bucket")
+	key := mockConfig.GetString("filesystems.disks.minio.key")
+	secret := mockConfig.GetString("filesystems.disks.minio.secret")
+	bucket := mockConfig.GetString("filesystems.disks.minio.bucket")
 	resource, err := resource(pool, &dockertest.RunOptions{
 		Repository: "minio/minio",
 		Tag:        "latest",
@@ -493,8 +493,8 @@ func initMinioDocker(mockConfig *configmocks.Config) (*dockertest.Pool, *dockert
 	_ = resource.Expire(600)
 
 	endpoint := fmt.Sprintf("127.0.0.1:%s", resource.GetPort("9000/tcp"))
-	mockConfig.On("GetString", "minio.url").Return(fmt.Sprintf("http://%s/%s", endpoint, bucket))
-	mockConfig.On("GetString", "minio.endpoint").Return(endpoint)
+	mockConfig.On("GetString", "filesystems.disks.minio.url").Return(fmt.Sprintf("http://%s/%s", endpoint, bucket))
+	mockConfig.On("GetString", "filesystems.disks.minio.endpoint").Return(endpoint)
 
 	if err := pool.Retry(func() error {
 		client, err := minio.New(endpoint, &minio.Options{
@@ -504,7 +504,7 @@ func initMinioDocker(mockConfig *configmocks.Config) (*dockertest.Pool, *dockert
 			return err
 		}
 
-		if err := client.MakeBucket(context.Background(), mockConfig.GetString("minio.bucket"), minio.MakeBucketOptions{}); err != nil {
+		if err := client.MakeBucket(context.Background(), bucket, minio.MakeBucketOptions{}); err != nil {
 			return err
 		}
 

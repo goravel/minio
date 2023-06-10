@@ -8,8 +8,8 @@ import (
 	"github.com/goravel/minio"
 )
 
-func Minio() filesystem.Driver {
-	instance, err := minio.App.Make(minio.Binding)
+func Minio(disk string) filesystem.Driver {
+	instance, err := minio.App.MakeWith(minio.Binding, map[string]any{"disk": disk})
 	if err != nil {
 		log.Fatalln(err)
 		return nil

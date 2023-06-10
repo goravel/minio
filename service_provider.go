@@ -16,8 +16,8 @@ type ServiceProvider struct {
 func (receiver *ServiceProvider) Register(app foundation.Application) {
 	App = app
 
-	app.Bind(Binding, func(app foundation.Application) (any, error) {
-		return NewMinio(context.Background(), app.MakeConfig())
+	app.BindWith(Binding, func(app foundation.Application, parameters map[string]any) (any, error) {
+		return NewMinio(context.Background(), app.MakeConfig(), parameters["disk"].(string))
 	})
 }
 

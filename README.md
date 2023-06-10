@@ -1,6 +1,6 @@
-# minio
+# Minio
 
-A minio disk driver for facades.Storage of Goravel.
+A Minio disk driver for facades.Storage of Goravel.
 
 ## Install
 
@@ -22,15 +22,7 @@ import "github.com/goravel/minio"
 }
 ```
 
-3. Publish configuration file
-dd
-```
-go run . artisan vendor:publish --package=github.com/goravel/minio
-```
-
-4. Fill your minio configuration to `config/minio.go` file
-
-5. Add minio disk to `config/filesystems.go` file
+3. Add minio disk to `config/filesystems.go` file
 
 ```
 // config/filesystems.go
@@ -43,8 +35,15 @@ import (
     ...
     "minio": map[string]any{
         "driver": "custom",
+        "key":      config.Env("MINIO_ACCESS_KEY_ID"),
+        "secret":   config.Env("MINIO_ACCESS_KEY_SECRET"),
+        "region":   config.Env("MINIO_REGION"),
+        "bucket":   config.Env("MINIO_BUCKET"),
+        "url":      config.Env("MINIO_URL"),
+        "endpoint": config.Env("MINIO_ENDPOINT"),
+        "ssl":      config.Env("MINIO_SSL", false),
         "via": func() (filesystem.Driver, error) {
-            return miniofacades.Minio(), nil
+            return miniofacades.Minio("minio"), nil // The `minio` value is the `disks` key
         },
     },
 }
@@ -55,5 +54,5 @@ import (
 Run command below to run test(fill your owner minio configuration):
 
 ```
-TENCENT_ACCESS_KEY_ID= TENCENT_ACCESS_KEY_SECRET= TENCENT_BUCKET= TENCENT_URL= go test ./...
+MINIO_ACCESS_KEY_ID= MINIO_ACCESS_KEY_SECRET= MINIO_BUCKET= go test ./...
 ```
