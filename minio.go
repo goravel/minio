@@ -10,13 +10,13 @@ import (
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gookit/color"
+	"github.com/goravel/framework/support/carbon"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/goravel/framework/contracts/config"
 	"github.com/goravel/framework/contracts/filesystem"
 	"github.com/goravel/framework/support/str"
-	supporttime "github.com/goravel/framework/support/time"
 )
 
 /*
@@ -323,7 +323,7 @@ func (r *Minio) Size(file string) (int64, error) {
 func (r *Minio) TemporaryUrl(file string, time time.Time) (string, error) {
 	file = strings.TrimPrefix(file, "/")
 	reqParams := make(url.Values)
-	presignedURL, err := r.instance.PresignedGetObject(r.ctx, r.bucket, file, time.Sub(supporttime.Now()), reqParams)
+	presignedURL, err := r.instance.PresignedGetObject(r.ctx, r.bucket, file, time.Sub(carbon.Now().ToStdTime()), reqParams)
 	if err != nil {
 		return "", err
 	}
