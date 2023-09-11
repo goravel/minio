@@ -3,8 +3,9 @@ package minio
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -217,7 +218,7 @@ func (r *Minio) Get(file string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	data, err := ioutil.ReadAll(object)
+	data, err := io.ReadAll(object)
 	defer object.Close()
 	if err != nil {
 		return "", err
@@ -299,7 +300,7 @@ func (r *Minio) PutFileAs(filePath string, source filesystem.File, name string) 
 		return "", err
 	}
 
-	data, err := ioutil.ReadFile(source.File())
+	data, err := os.ReadFile(source.File())
 	if err != nil {
 		return "", err
 	}

@@ -3,7 +3,7 @@ package minio
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net/http"
 	"os"
@@ -28,7 +28,7 @@ func TestStorage(t *testing.T) {
 		return
 	}
 
-	assert.Nil(t, ioutil.WriteFile("test.txt", []byte("Goravel"), 0644))
+	assert.Nil(t, os.WriteFile("test.txt", []byte("Goravel"), 0644))
 
 	mockConfig := &configmocks.Config{}
 	mockConfig.On("GetString", "app.timezone").Return("UTC")
@@ -39,7 +39,8 @@ func TestStorage(t *testing.T) {
 	mockConfig.On("GetString", "filesystems.disks.minio.secret").Return(os.Getenv("MINIO_ACCESS_KEY_SECRET"))
 	mockConfig.On("GetString", "filesystems.disks.minio.bucket").Return(os.Getenv("MINIO_BUCKET"))
 
-	minioPool, minioResource, err := initMinioDocker(mockConfig)
+	pool, resource, err := initMinioDocker(mockConfig)
+	assert.Nil(t, err)
 
 	var driver contractsfilesystem.Driver
 	url := mockConfig.GetString("filesystems.disks.minio.url")
@@ -353,7 +354,7 @@ func TestStorage(t *testing.T) {
 				assert.NotEmpty(t, url)
 				resp, err := http.Get(url)
 				assert.Nil(t, err)
-				content, err := ioutil.ReadAll(resp.Body)
+				content, err := io.ReadAll(resp.Body)
 				assert.Nil(t, resp.Body.Close())
 				assert.Nil(t, err)
 				assert.Equal(t, "Goravel", string(content))
@@ -369,7 +370,7 @@ func TestStorage(t *testing.T) {
 				assert.Equal(t, url, driver.Url("Url/1.txt"))
 				resp, err := http.Get(url)
 				assert.Nil(t, err)
-				content, err := ioutil.ReadAll(resp.Body)
+				content, err := io.ReadAll(resp.Body)
 				assert.Nil(t, resp.Body.Close())
 				assert.Nil(t, err)
 				assert.Equal(t, "Goravel", string(content))
@@ -388,7 +389,7 @@ func TestStorage(t *testing.T) {
 	}
 
 	assert.Nil(t, os.Remove("test.txt"))
-	assert.Nil(t, minioPool.Purge(minioResource))
+	assert.Nil(t, pool.Purge(resource))
 }
 
 type File struct {
