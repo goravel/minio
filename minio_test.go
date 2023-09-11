@@ -39,7 +39,7 @@ func TestStorage(t *testing.T) {
 	mockConfig.On("GetString", "filesystems.disks.minio.secret").Return(os.Getenv("MINIO_ACCESS_KEY_SECRET"))
 	mockConfig.On("GetString", "filesystems.disks.minio.bucket").Return(os.Getenv("MINIO_BUCKET"))
 
-	_, _, err := initMinioDocker(mockConfig)
+	pool, resource, err := initMinioDocker(mockConfig)
 	assert.Nil(t, err)
 
 	var driver contractsfilesystem.Driver
@@ -389,7 +389,7 @@ func TestStorage(t *testing.T) {
 	}
 
 	assert.Nil(t, os.Remove("test.txt"))
-	//assert.Nil(t, minioPool.Purge(minioResource))
+	assert.Nil(t, pool.Purge(resource))
 }
 
 type File struct {
