@@ -214,16 +214,22 @@ func (r *Minio) Files(path string) ([]string, error) {
 }
 
 func (r *Minio) Get(file string) (string, error) {
+	data, err := r.GetBytes(file)
+
+	return string(data), err
+}
+
+func (r *Minio) GetBytes(file string) ([]byte, error) {
 	object, err := r.instance.GetObject(r.ctx, r.bucket, file, minio.GetObjectOptions{})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	data, err := io.ReadAll(object)
 	defer object.Close()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(data), nil
+	return data, nil
 }
 
 func (r *Minio) LastModified(file string) (time.Time, error) {
