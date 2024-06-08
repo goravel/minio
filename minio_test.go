@@ -18,8 +18,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	configmocks "github.com/goravel/framework/contracts/config/mocks"
-	contractsfilesystem "github.com/goravel/framework/contracts/filesystem"
+	filesystemcontract "github.com/goravel/framework/contracts/filesystem"
+	configmock "github.com/goravel/framework/mocks/config"
 )
 
 func TestStorage(t *testing.T) {
@@ -30,7 +30,7 @@ func TestStorage(t *testing.T) {
 
 	assert.Nil(t, os.WriteFile("test.txt", []byte("Goravel"), 0644))
 
-	mockConfig := &configmocks.Config{}
+	mockConfig := &configmock.Config{}
 	mockConfig.On("GetString", "app.timezone").Return("UTC")
 	mockConfig.On("GetString", "filesystems.disks.minio.driver").Return("minio")
 	mockConfig.On("GetString", "filesystems.disks.minio.region").Return("")
@@ -42,7 +42,7 @@ func TestStorage(t *testing.T) {
 	pool, resource, err := initMinioDocker(mockConfig)
 	assert.Nil(t, err)
 
-	var driver contractsfilesystem.Driver
+	var driver filesystemcontract.Driver
 	url := mockConfig.GetString("filesystems.disks.minio.url")
 
 	tests := []struct {
@@ -412,7 +412,7 @@ type File struct {
 	path string
 }
 
-func (f *File) Disk(disk string) contractsfilesystem.File {
+func (f *File) Disk(disk string) filesystemcontract.File {
 	return &File{}
 }
 
@@ -479,7 +479,7 @@ func resource(pool *dockertest.Pool, opts *dockertest.RunOptions) (*dockertest.R
 	})
 }
 
-func initMinioDocker(mockConfig *configmocks.Config) (*dockertest.Pool, *dockertest.Resource, error) {
+func initMinioDocker(mockConfig *configmock.Config) (*dockertest.Pool, *dockertest.Resource, error) {
 	pool, err := pool()
 	if err != nil {
 		return nil, nil, err

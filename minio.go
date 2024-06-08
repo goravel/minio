@@ -330,7 +330,7 @@ func (r *Minio) Size(file string) (int64, error) {
 func (r *Minio) TemporaryUrl(file string, time time.Time) (string, error) {
 	file = strings.TrimPrefix(file, "/")
 	reqParams := make(url.Values)
-	presignedURL, err := r.instance.PresignedGetObject(r.ctx, r.bucket, file, time.Sub(carbon.Now().ToStdTime()), reqParams)
+	presignedURL, err := r.instance.PresignedGetObject(r.ctx, r.bucket, file, time.Sub(carbon.Now().StdTime()), reqParams)
 	if err != nil {
 		return "", err
 	}
