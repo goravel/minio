@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/gabriel-vasile/mimetype v1.4.4
 	github.com/gookit/color v1.5.4
-	github.com/goravel/framework v1.14.2
+	github.com/goravel/framework v1.14.3
 	github.com/minio/minio-go/v7 v7.0.73
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/pkg/errors v0.9.1
