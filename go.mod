@@ -7,7 +7,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.6
 	github.com/gookit/color v1.5.4
 	github.com/goravel/framework v1.14.7
-	github.com/minio/minio-go/v7 v7.0.79
+	github.com/minio/minio-go/v7 v7.0.80
 	github.com/ory/dockertest/v3 v3.11.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
