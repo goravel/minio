@@ -181,7 +181,10 @@ func (r *Minio) Directories(path string) ([]string, error) {
 			return nil, object.Err
 		}
 		if strings.HasSuffix(object.Key, "/") {
-			directories = append(directories, strings.ReplaceAll(object.Key, validPath, ""))
+			directory := strings.ReplaceAll(object.Key, validPath, "")
+			if directory != "" {
+				directories = append(directories, directory)
+			}
 		}
 	}
 
@@ -280,6 +283,18 @@ func (r *Minio) Path(file string) string {
 }
 
 func (r *Minio) Put(file string, content string) error {
+	// If the file is created in a folder directly, we can't check if the folder exists.
+	// So we need to create the top folder first.
+	if !strings.HasSuffix(file, "/") {
+		index := strings.Index(file, "/")
+		if index != -1 {
+			folder := file[:index+1]
+			if err := r.MakeDirectory(folder); err != nil {
+				return err
+			}
+		}
+	}
+
 	mtype := mimetype.Detect([]byte(content))
 	reader := strings.NewReader(content)
 	_, err := r.instance.PutObject(
