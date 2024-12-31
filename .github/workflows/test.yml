@@ -10,15 +10,12 @@ env:
   MINIO_BUCKET: ${{ secrets.MINIO_BUCKET }}
 jobs:
   ubuntu:
-    strategy:
-      matrix:
-        go: [ "latest" ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version: latest
       - name: Install dependencies
         run: go mod tidy
       - name: Run tests
