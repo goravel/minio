@@ -4,7 +4,19 @@ on:
     branches:
       - master
   pull_request:
+env:
+  MINIO_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY_ID }}
+  MINIO_ACCESS_KEY_SECRET: ${{ secrets.MINIO_ACCESS_KEY_SECRET }}
+  MINIO_BUCKET: ${{ secrets.MINIO_BUCKET }}
 jobs:
-  test:
-    uses: goravel/.github/.github/workflows/test.yml@master
-    secrets: inherit
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - name: Install dependencies
+        run: go mod tidy
+      - name: Run tests
+        run: go test -timeout 1h ./...
