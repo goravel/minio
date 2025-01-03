@@ -250,11 +250,7 @@ func (r *Minio) LastModified(file string) (time.Time, error) {
 }
 
 func (r *Minio) MakeDirectory(directory string) error {
-	if !strings.HasSuffix(directory, "/") {
-		directory += "/"
-	}
-
-	return r.Put(directory, "")
+	return r.Put(str.Of(directory).Finish("/").String(), "")
 }
 
 func (r *Minio) MimeType(file string) (string, error) {
@@ -284,11 +280,11 @@ func (r *Minio) Path(file string) string {
 
 func (r *Minio) Put(file string, content string) error {
 	// If the file is created in a folder directly, we can't check if the folder exists.
-	// So we need to create the top folder first.
+	// So we need to create the folders first.
 	if !strings.HasSuffix(file, "/") {
-		index := strings.Index(file, "/")
-		if index != -1 {
-			folder := file[:index+1]
+		folders := strings.Split(file, "/")
+		for i := 1; i < len(folders); i++ {
+			folder := strings.Join(folders[:i], "/")
 			if err := r.MakeDirectory(folder); err != nil {
 				return err
 			}
