@@ -61,7 +61,10 @@ func TestStorage(t *testing.T) {
 				assert.True(t, driver.Exists("AllDirectories/2.txt"))
 				assert.True(t, driver.Exists("AllDirectories/3/3.txt"))
 				assert.True(t, driver.Exists("AllDirectories/3/4/"))
-				assert.True(t, driver.Exists("AllDirectories/3/5/6/6.txt"))
+				assert.True(t, driver.Exists("AllDirectories/"))
+				assert.True(t, driver.Exists("AllDirectories/3/"))
+				assert.True(t, driver.Exists("AllDirectories/3/5/"))
+				assert.True(t, driver.Exists("AllDirectories/3/5/6/"))
 				files, err := driver.AllDirectories("AllDirectories")
 				assert.Nil(t, err)
 				assert.Equal(t, []string{"3/", "3/4/", "3/5/", "3/5/6/"}, files)
@@ -278,9 +281,11 @@ func TestStorage(t *testing.T) {
 		{
 			name: "Put",
 			setup: func() {
-				assert.Nil(t, driver.Put("Put/1.txt", "Goravel"))
+				assert.Nil(t, driver.Put("Put/a/b/1.txt", "Goravel"))
 				assert.True(t, driver.Exists("Put/"))
-				assert.True(t, driver.Exists("Put/1.txt"))
+				assert.True(t, driver.Exists("Put/a/"))
+				assert.True(t, driver.Exists("Put/a/b/"))
+				assert.True(t, driver.Exists("Put/a/b/1.txt"))
 				assert.True(t, driver.Missing("Put/2.txt"))
 				assert.Nil(t, driver.DeleteDirectory("Put"))
 			},
