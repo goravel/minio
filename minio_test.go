@@ -65,6 +65,7 @@ func TestStorage(t *testing.T) {
 				assert.True(t, driver.Exists("AllDirectories/3/"))
 				assert.True(t, driver.Exists("AllDirectories/3/5/"))
 				assert.True(t, driver.Exists("AllDirectories/3/5/6/"))
+				assert.True(t, driver.Exists("AllDirectories/3/5/6/6.txt"))
 				files, err := driver.AllDirectories("AllDirectories")
 				assert.Nil(t, err)
 				assert.Equal(t, []string{"3/", "3/4/", "3/5/", "3/5/6/"}, files)
