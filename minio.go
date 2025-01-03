@@ -250,11 +250,7 @@ func (r *Minio) LastModified(file string) (time.Time, error) {
 }
 
 func (r *Minio) MakeDirectory(directory string) error {
-	if !strings.HasSuffix(directory, "/") {
-		directory += "/"
-	}
-
-	return r.Put(directory, "")
+	return r.Put(str.Of(directory).Finish("/").String(), "")
 }
 
 func (r *Minio) MimeType(file string) (string, error) {
