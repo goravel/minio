@@ -2,7 +2,7 @@ module github.com/goravel/minio
 
 go 1.22.7
 
-toolchain go1.23.5
+toolchain go1.23.6
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.8
