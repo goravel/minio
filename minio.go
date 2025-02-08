@@ -11,6 +11,7 @@ import (
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gookit/color"
+	"github.com/goravel/framework/http"
 	"github.com/goravel/framework/support/carbon"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -350,6 +351,10 @@ func (r *Minio) TemporaryUrl(file string, time time.Time) (string, error) {
 }
 
 func (r *Minio) WithContext(ctx context.Context) filesystem.Driver {
+	if httpCtx, ok := ctx.(http.Context); ok {
+		ctx = httpCtx.Context()
+	}
+
 	driver, err := NewMinio(ctx, r.config, r.disk)
 	if err != nil {
 		color.Redf("init %s disk fail: %v\n", r.disk, err)
