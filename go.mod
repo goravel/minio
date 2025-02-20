@@ -8,7 +8,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.8
 	github.com/gookit/color v1.5.4
 	github.com/goravel/framework v1.15.3
-	github.com/minio/minio-go/v7 v7.0.86
+	github.com/minio/minio-go/v7 v7.0.87
 	github.com/ory/dockertest/v3 v3.11.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
@@ -36,7 +36,7 @@ require (
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
-	github.com/minio/crc64nvme v1.0.0 // indirect
+	github.com/minio/crc64nvme v1.0.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
