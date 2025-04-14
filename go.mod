@@ -7,7 +7,7 @@ toolchain go1.24.2
 require (
 	github.com/gabriel-vasile/mimetype v1.4.8
 	github.com/gookit/color v1.5.4
-	github.com/goravel/framework v1.15.6
+	github.com/goravel/framework v1.15.7
 	github.com/minio/minio-go/v7 v7.0.89
 	github.com/ory/dockertest/v3 v3.12.0
 	github.com/pkg/errors v0.9.1
@@ -26,7 +26,7 @@ require (
 	github.com/docker/docker v27.1.1+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/dromara/carbon/v2 v2.5.2 // indirect
+	github.com/dromara/carbon/v2 v2.5.6 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
