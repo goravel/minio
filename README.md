@@ -52,7 +52,7 @@ import (
         "endpoint": config.Env("MINIO_ENDPOINT"),
         "ssl":      config.Env("MINIO_SSL", false),
         "via": func() (filesystem.Driver, error) {
-            return miniofacades.Minio("minio"), nil // The `minio` value is the `disks` key
+            return miniofacades.Minio("minio") // The `minio` value is the `disks` key
         },
     },
 }
