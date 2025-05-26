@@ -7,7 +7,7 @@ toolchain go1.24.3
 require (
 	github.com/gabriel-vasile/mimetype v1.4.9
 	github.com/gookit/color v1.5.4
-	github.com/goravel/framework v1.15.2-0.20250513024952-5c6bf415f2ed
+	github.com/goravel/framework v1.15.8
 	github.com/minio/minio-go/v7 v7.0.92
 	github.com/ory/dockertest/v3 v3.12.0
 	github.com/pkg/errors v0.9.1
