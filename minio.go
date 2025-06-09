@@ -34,6 +34,7 @@ type Minio struct {
 	bucket   string
 	disk     string
 	url      string
+	timezone string
 }
 
 func NewMinio(ctx context.Context, config config.Config, disk string) (*Minio, error) {
@@ -44,6 +45,7 @@ func NewMinio(ctx context.Context, config config.Config, disk string) (*Minio, e
 	diskUrl := config.GetString(fmt.Sprintf("filesystems.disks.%s.url", disk))
 	ssl := config.GetBool(fmt.Sprintf("filesystems.disks.%s.ssl", disk), false)
 	endpoint := config.GetString(fmt.Sprintf("filesystems.disks.%s.endpoint", disk))
+	timezone := config.GetString("app.timezone")
 	if key == "" || secret == "" || bucket == "" || diskUrl == "" || endpoint == "" {
 		return nil, fmt.Errorf("please set %s configuration first", disk)
 	}
@@ -67,6 +69,7 @@ func NewMinio(ctx context.Context, config config.Config, disk string) (*Minio, e
 		bucket:   bucket,
 		disk:     disk,
 		url:      diskUrl,
+		timezone: timezone,
 	}, nil
 }
 
@@ -242,7 +245,7 @@ func (r *Minio) LastModified(file string) (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	l, err := time.LoadLocation(r.config.GetString("app.timezone"))
+	l, err := time.LoadLocation(r.timezone)
 	if err != nil {
 		return time.Time{}, err
 	}

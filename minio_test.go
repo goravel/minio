@@ -10,408 +10,439 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gookit/color"
+	filesystemcontract "github.com/goravel/framework/contracts/filesystem"
+	contractsdocker "github.com/goravel/framework/contracts/testing/docker"
+	configmock "github.com/goravel/framework/mocks/config"
+	supportdocker "github.com/goravel/framework/support/docker"
+	testingdocker "github.com/goravel/framework/testing/docker"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/ory/dockertest/v3"
-	"github.com/ory/dockertest/v3/docker"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-
-	filesystemcontract "github.com/goravel/framework/contracts/filesystem"
-	configmock "github.com/goravel/framework/mocks/config"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestStorage(t *testing.T) {
-	if os.Getenv("MINIO_ACCESS_KEY_ID") == "" {
-		color.Redln("No filesystem tests run, please add minio configuration: MINIO_ACCESS_KEY_ID= MINIO_ACCESS_KEY_SECRET= MINIO_BUCKET= go test ./...")
-		return
+const (
+	testKey    = "j45vy0yIvvhs47uf"
+	testSecret = "jgwB91UEJ1LBA9cVYfbVqP7eXpHHrpDs"
+	testBucket = "goravel"
+)
+
+type MinioTestSuite struct {
+	suite.Suite
+	mockConfig *configmock.Config
+	docker     contractsdocker.ImageDriver
+	minio      *Minio
+}
+
+func TestMinioTestSuite(t *testing.T) {
+	suite.Run(t, new(MinioTestSuite))
+}
+
+func (s *MinioTestSuite) SetupSuite() {
+	s.Nil(os.WriteFile("test.txt", []byte("Goravel"), 0644))
+
+	s.mockConfig = configmock.NewConfig(s.T())
+	docker := testingdocker.NewImageDriver(contractsdocker.Image{
+		Repository: "minio/minio",
+		Tag:        "latest",
+		Cmd:        []string{"server", "/data"},
+		Env: []string{
+			"MINIO_ACCESS_KEY=" + testKey,
+			"MINIO_SECRET_KEY=" + testSecret,
+		},
+		ExposedPorts: []string{
+			"9000",
+		},
+	})
+	err := docker.Build()
+	if err != nil {
+		panic(err)
 	}
 
-	assert.Nil(t, os.WriteFile("test.txt", []byte("Goravel"), 0644))
+	config := docker.Config()
+	endpoint := fmt.Sprintf("127.0.0.1:%s", supportdocker.ExposedPort(config.ExposedPorts, "9000"))
 
-	mockConfig := &configmock.Config{}
-	mockConfig.On("GetString", "app.timezone").Return("UTC")
-	mockConfig.On("GetString", "filesystems.disks.minio.driver").Return("minio")
-	mockConfig.On("GetString", "filesystems.disks.minio.region").Return("")
-	mockConfig.On("GetBool", "filesystems.disks.minio.ssl", false).Return(false)
-	mockConfig.On("GetString", "filesystems.disks.minio.key").Return(os.Getenv("MINIO_ACCESS_KEY_ID"))
-	mockConfig.On("GetString", "filesystems.disks.minio.secret").Return(os.Getenv("MINIO_ACCESS_KEY_SECRET"))
-	mockConfig.On("GetString", "filesystems.disks.minio.bucket").Return(os.Getenv("MINIO_BUCKET"))
-
-	pool, resource, err := initMinioDocker(mockConfig)
-	assert.Nil(t, err)
-
-	var driver filesystemcontract.Driver
-	url := mockConfig.GetString("filesystems.disks.minio.url")
-
-	tests := []struct {
-		name  string
-		setup func()
-	}{
-		{
-			name: "AllDirectories",
-			setup: func() {
-				assert.Nil(t, driver.Put("AllDirectories/1.txt", "Goravel"))
-				assert.Nil(t, driver.Put("AllDirectories/2.txt", "Goravel"))
-				assert.Nil(t, driver.Put("AllDirectories/3/3.txt", "Goravel"))
-				assert.Nil(t, driver.Put("AllDirectories/3/5/6/6.txt", "Goravel"))
-				assert.Nil(t, driver.MakeDirectory("AllDirectories/3/4"))
-				assert.True(t, driver.Exists("AllDirectories/1.txt"))
-				assert.True(t, driver.Exists("AllDirectories/2.txt"))
-				assert.True(t, driver.Exists("AllDirectories/3/3.txt"))
-				assert.True(t, driver.Exists("AllDirectories/3/4/"))
-				assert.True(t, driver.Exists("AllDirectories/"))
-				assert.True(t, driver.Exists("AllDirectories/3/"))
-				assert.True(t, driver.Exists("AllDirectories/3/5/"))
-				assert.True(t, driver.Exists("AllDirectories/3/5/6/"))
-				assert.True(t, driver.Exists("AllDirectories/3/5/6/6.txt"))
-				files, err := driver.AllDirectories("AllDirectories")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"3/", "3/4/", "3/5/", "3/5/6/"}, files)
-				files, err = driver.AllDirectories("./AllDirectories")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"3/", "3/4/", "3/5/", "3/5/6/"}, files)
-				files, err = driver.AllDirectories("/AllDirectories")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"3/", "3/4/", "3/5/", "3/5/6/"}, files)
-				files, err = driver.AllDirectories("./AllDirectories/")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"3/", "3/4/", "3/5/", "3/5/6/"}, files)
-				assert.Nil(t, driver.DeleteDirectory("AllDirectories"))
-			},
-		},
-		{
-			name: "AllFiles",
-			setup: func() {
-				assert.Nil(t, driver.Put("AllFiles/1.txt", "Goravel"))
-				assert.Nil(t, driver.Put("AllFiles/2.txt", "Goravel"))
-				assert.Nil(t, driver.Put("AllFiles/3/3.txt", "Goravel"))
-				assert.Nil(t, driver.Put("AllFiles/3/4/4.txt", "Goravel"))
-				assert.True(t, driver.Exists("AllFiles/1.txt"))
-				assert.True(t, driver.Exists("AllFiles/2.txt"))
-				assert.True(t, driver.Exists("AllFiles/3/3.txt"))
-				assert.True(t, driver.Exists("AllFiles/3/4/4.txt"))
-				files, err := driver.AllFiles("AllFiles")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"1.txt", "2.txt", "3/3.txt", "3/4/4.txt"}, files)
-				files, err = driver.AllFiles("./AllFiles")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"1.txt", "2.txt", "3/3.txt", "3/4/4.txt"}, files)
-				files, err = driver.AllFiles("/AllFiles")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"1.txt", "2.txt", "3/3.txt", "3/4/4.txt"}, files)
-				files, err = driver.AllFiles("./AllFiles/")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"1.txt", "2.txt", "3/3.txt", "3/4/4.txt"}, files)
-				assert.Nil(t, driver.DeleteDirectory("AllFiles"))
-			},
-		},
-		{
-			name: "Copy",
-			setup: func() {
-				assert.Nil(t, driver.Put("Copy/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("Copy/1.txt"))
-				assert.Nil(t, driver.Copy("Copy/1.txt", "Copy1/1.txt"))
-				assert.True(t, driver.Exists("Copy/1.txt"))
-				assert.True(t, driver.Exists("Copy1/1.txt"))
-				assert.Nil(t, driver.DeleteDirectory("Copy"))
-				assert.Nil(t, driver.DeleteDirectory("Copy1"))
-			},
-		},
-		{
-			name: "Delete",
-			setup: func() {
-				assert.Nil(t, driver.Put("Delete/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("Delete/1.txt"))
-				assert.Nil(t, driver.Delete("Delete/1.txt"))
-				assert.True(t, driver.Missing("Delete/1.txt"))
-				assert.Nil(t, driver.DeleteDirectory("Delete"))
-			},
-		},
-		{
-			name: "DeleteDirectory",
-			setup: func() {
-				assert.Nil(t, driver.Put("DeleteDirectory/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("DeleteDirectory/1.txt"))
-				assert.Nil(t, driver.DeleteDirectory("DeleteDirectory"))
-				assert.True(t, driver.Missing("DeleteDirectory/1.txt"))
-				assert.Nil(t, driver.DeleteDirectory("DeleteDirectory"))
-			},
-		},
-		{
-			name: "Directories",
-			setup: func() {
-				assert.Nil(t, driver.Put("Directories/1.txt", "Goravel"))
-				assert.Nil(t, driver.Put("Directories/2.txt", "Goravel"))
-				assert.Nil(t, driver.Put("Directories/3/3.txt", "Goravel"))
-				assert.Nil(t, driver.Put("Directories/3/5/5.txt", "Goravel"))
-				assert.Nil(t, driver.MakeDirectory("Directories/3/4"))
-				assert.True(t, driver.Exists("Directories/1.txt"))
-				assert.True(t, driver.Exists("Directories/2.txt"))
-				assert.True(t, driver.Exists("Directories/3/3.txt"))
-				assert.True(t, driver.Exists("Directories/3/4/"))
-				assert.True(t, driver.Exists("Directories/3/5/5.txt"))
-				files, err := driver.Directories("Directories")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"3/"}, files)
-				files, err = driver.Directories("./Directories")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"3/"}, files)
-				files, err = driver.Directories("/Directories")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"3/"}, files)
-				files, err = driver.Directories("./Directories/")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"3/"}, files)
-				assert.Nil(t, driver.DeleteDirectory("Directories"))
-			},
-		},
-		{
-			name: "Files",
-			setup: func() {
-				assert.Nil(t, driver.Put("Files/1.txt", "Goravel"))
-				assert.Nil(t, driver.Put("Files/2.txt", "Goravel"))
-				assert.Nil(t, driver.Put("Files/3/3.txt", "Goravel"))
-				assert.Nil(t, driver.Put("Files/3/4/4.txt", "Goravel"))
-				assert.True(t, driver.Exists("Files/1.txt"))
-				assert.True(t, driver.Exists("Files/2.txt"))
-				assert.True(t, driver.Exists("Files/3/3.txt"))
-				assert.True(t, driver.Exists("Files/3/4/4.txt"))
-				files, err := driver.Files("Files")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"1.txt", "2.txt"}, files)
-				files, err = driver.Files("./Files")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"1.txt", "2.txt"}, files)
-				files, err = driver.Files("/Files")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"1.txt", "2.txt"}, files)
-				files, err = driver.Files("./Files/")
-				assert.Nil(t, err)
-				assert.Equal(t, []string{"1.txt", "2.txt"}, files)
-				assert.Nil(t, driver.DeleteDirectory("Files"))
-			},
-		},
-		{
-			name: "Get",
-			setup: func() {
-				assert.Nil(t, driver.Put("Get/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("Get/1.txt"))
-				data, err := driver.Get("Get/1.txt")
-				assert.Nil(t, err)
-				assert.Equal(t, "Goravel", data)
-				length, err := driver.Size("Get/1.txt")
-				assert.Nil(t, err)
-				assert.Equal(t, int64(7), length)
-				assert.Nil(t, driver.DeleteDirectory("Get"))
-			},
-		},
-		{
-			name: "GetBytes",
-			setup: func() {
-				assert.Nil(t, driver.Put("GetBytes/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("GetBytes/1.txt"))
-				data, err := driver.GetBytes("GetBytes/1.txt")
-				assert.Nil(t, err)
-				assert.Equal(t, []byte("Goravel"), data)
-				length, err := driver.Size("GetBytes/1.txt")
-				assert.Nil(t, err)
-				assert.Equal(t, int64(7), length)
-				assert.Nil(t, driver.DeleteDirectory("GetBytes"))
-			},
-		},
-		{
-			name: "LastModified",
-			setup: func() {
-				assert.Nil(t, driver.Put("LastModified/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("LastModified/1.txt"))
-				date, err := driver.LastModified("LastModified/1.txt")
-				assert.Nil(t, err)
-
-				l, err := time.LoadLocation("UTC")
-				assert.Nil(t, err)
-				assert.Equal(t, time.Now().In(l).Format("2006-01-02 15"), date.Format("2006-01-02 15"))
-				assert.Nil(t, driver.DeleteDirectory("LastModified"))
-			},
-		},
-		{
-			name: "MakeDirectory",
-			setup: func() {
-				assert.Nil(t, driver.MakeDirectory("MakeDirectory1/"))
-				assert.Nil(t, driver.MakeDirectory("MakeDirectory2"))
-				assert.Nil(t, driver.MakeDirectory("MakeDirectory3/MakeDirectory4"))
-				assert.Nil(t, driver.DeleteDirectory("MakeDirectory1"))
-				assert.Nil(t, driver.DeleteDirectory("MakeDirectory2"))
-				assert.Nil(t, driver.DeleteDirectory("MakeDirectory3"))
-				assert.Nil(t, driver.DeleteDirectory("MakeDirectory4"))
-			},
-		},
-		{
-			name: "MimeType",
-			setup: func() {
-				assert.Nil(t, driver.Put("MimeType/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("MimeType/1.txt"))
-				mimeType, err := driver.MimeType("MimeType/1.txt")
-				assert.Nil(t, err)
-				mediaType, _, err := mime.ParseMediaType(mimeType)
-				assert.Nil(t, err)
-				assert.Equal(t, "text/plain", mediaType)
-
-				fileInfo := &File{path: "logo.png"}
-				path, err := driver.PutFile("MimeType", fileInfo)
-				assert.Nil(t, err)
-				assert.True(t, driver.Exists(path))
-				mimeType, err = driver.MimeType(path)
-				assert.Nil(t, err)
-				assert.Equal(t, "image/png", mimeType)
-			},
-		},
-		{
-			name: "Move",
-			setup: func() {
-				assert.Nil(t, driver.Put("Move/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("Move/1.txt"))
-				assert.Nil(t, driver.Move("Move/1.txt", "Move1/1.txt"))
-				assert.True(t, driver.Missing("Move/1.txt"))
-				assert.True(t, driver.Exists("Move1/1.txt"))
-				assert.Nil(t, driver.DeleteDirectory("Move"))
-				assert.Nil(t, driver.DeleteDirectory("Move1"))
-			},
-		},
-		{
-			name: "Put",
-			setup: func() {
-				assert.Nil(t, driver.Put("Put/a/b/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("Put/"))
-				assert.True(t, driver.Exists("Put/a/"))
-				assert.True(t, driver.Exists("Put/a/b/"))
-				assert.True(t, driver.Exists("Put/a/b/1.txt"))
-				assert.True(t, driver.Missing("Put/2.txt"))
-				assert.Nil(t, driver.DeleteDirectory("Put"))
-			},
-		},
-		{
-			name: "PutFile_Image",
-			setup: func() {
-				fileInfo := &File{path: "logo.png"}
-				path, err := driver.PutFile("PutFile1", fileInfo)
-				assert.Nil(t, err)
-				assert.True(t, driver.Exists(path))
-				assert.Nil(t, driver.DeleteDirectory("PutFile1"))
-			},
-		},
-		{
-			name: "PutFile_Text",
-			setup: func() {
-				fileInfo := &File{path: "test.txt"}
-				path, err := driver.PutFile("PutFile", fileInfo)
-				assert.Nil(t, err)
-				assert.True(t, driver.Exists("PutFile/"))
-				assert.True(t, driver.Exists(path))
-				data, err := driver.Get(path)
-				assert.Nil(t, err)
-				assert.Equal(t, "Goravel", data)
-				assert.Nil(t, driver.DeleteDirectory("PutFile"))
-			},
-		},
-		{
-			name: "PutFileAs_Text",
-			setup: func() {
-				fileInfo := &File{path: "test.txt"}
-				path, err := driver.PutFileAs("PutFileAs", fileInfo, "text")
-				assert.Nil(t, err)
-				assert.Equal(t, "PutFileAs/text.txt", path)
-				assert.True(t, driver.Exists(path))
-				data, err := driver.Get(path)
-				assert.Nil(t, err)
-				assert.Equal(t, "Goravel", data)
-
-				path, err = driver.PutFileAs("PutFileAs", fileInfo, "text1.txt")
-				assert.Nil(t, err)
-				assert.Equal(t, "PutFileAs/text1.txt", path)
-				assert.True(t, driver.Exists(path))
-				data, err = driver.Get(path)
-				assert.Nil(t, err)
-				assert.Equal(t, "Goravel", data)
-
-				assert.Nil(t, driver.DeleteDirectory("PutFileAs"))
-			},
-		},
-		{
-			name: "PutFileAs_Image",
-			setup: func() {
-				fileInfo := &File{path: "logo.png"}
-				path, err := driver.PutFileAs("PutFileAs1", fileInfo, "image")
-				assert.Nil(t, err)
-				assert.Equal(t, "PutFileAs1/image.png", path)
-				assert.True(t, driver.Exists(path))
-
-				path, err = driver.PutFileAs("PutFileAs1", fileInfo, "image1.png")
-				assert.Nil(t, err)
-				assert.Equal(t, "PutFileAs1/image1.png", path)
-				assert.True(t, driver.Exists(path))
-
-				assert.Nil(t, driver.DeleteDirectory("PutFileAs1"))
-			},
-		},
-		{
-			name: "Size",
-			setup: func() {
-				assert.Nil(t, driver.Put("Size/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("Size/1.txt"))
-				length, err := driver.Size("Size/1.txt")
-				assert.Nil(t, err)
-				assert.Equal(t, int64(7), length)
-				assert.Nil(t, driver.DeleteDirectory("Size"))
-			},
-		},
-		{
-			name: "TemporaryUrl",
-			setup: func() {
-				assert.Nil(t, driver.Put("TemporaryUrl/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("TemporaryUrl/1.txt"))
-				url, err := driver.TemporaryUrl("TemporaryUrl/1.txt", time.Now().Add(5*time.Second))
-				assert.Nil(t, err)
-				assert.NotEmpty(t, url)
-				resp, err := http.Get(url)
-				assert.Nil(t, err)
-				content, err := io.ReadAll(resp.Body)
-				assert.Nil(t, resp.Body.Close())
-				assert.Nil(t, err)
-				assert.Equal(t, "Goravel", string(content))
-				assert.Nil(t, driver.DeleteDirectory("TemporaryUrl"))
-			},
-		},
-		{
-			name: "Url",
-			setup: func() {
-				assert.Nil(t, driver.Put("Url/1.txt", "Goravel"))
-				assert.True(t, driver.Exists("Url/1.txt"))
-				url := url + "/Url/1.txt"
-				assert.Equal(t, url, driver.Url("Url/1.txt"))
-				resp, err := http.Get(url)
-				assert.Nil(t, err)
-				content, err := io.ReadAll(resp.Body)
-				assert.Nil(t, resp.Body.Close())
-				assert.Nil(t, err)
-				assert.Equal(t, "Goravel", string(content))
-				assert.Nil(t, driver.DeleteDirectory("Url"))
-			},
-		},
-	}
-
-	driver, err = NewMinio(context.Background(), mockConfig, "minio")
-	assert.NotNil(t, driver)
-	assert.Nil(t, err)
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			test.setup()
+	if err := docker.Ready(func() error {
+		client, err := minio.New(endpoint, &minio.Options{
+			Creds: credentials.NewStaticV4(testKey, testSecret, ""),
 		})
+		if err != nil {
+			return err
+		}
+		if err := client.MakeBucket(context.Background(), testBucket, minio.MakeBucketOptions{}); err != nil {
+			return err
+		}
+
+		policy := `{
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject"
+                ],
+                "Effect": "Allow",
+                "Principal": "*",
+                "Resource": [
+                    "arn:aws:s3:::` + testBucket + `/*"
+                ]
+            },
+            {
+                "Action": [
+                    "s3:ListBucket"
+                ],
+                "Effect": "Allow",
+                "Principal": "*",
+                "Resource": [
+                    "arn:aws:s3:::` + testBucket + `"
+                ]
+            }
+        ]
+    }`
+
+		if err := client.SetBucketPolicy(context.Background(), testBucket, policy); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		panic(err)
 	}
 
-	assert.Nil(t, os.Remove("test.txt"))
-	assert.Nil(t, pool.Purge(resource))
+	client, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(testKey, testSecret, ""),
+		Secure: false,
+		Region: "",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	s.docker = docker
+	s.minio = &Minio{
+		config:   s.mockConfig,
+		ctx:      context.Background(),
+		instance: client,
+		bucket:   testBucket,
+		disk:     "minio",
+		url:      fmt.Sprintf("http://%s/%s", endpoint, testBucket),
+		timezone: "UTC",
+	}
+}
+
+func (s *MinioTestSuite) TearDownSuite() {
+	s.NoError(os.Remove("test.txt"))
+	s.NoError(s.docker.Shutdown())
+}
+
+func (s *MinioTestSuite) SetupTest() {
+}
+
+func (s *MinioTestSuite) TestAllDirectories() {
+	s.Nil(s.minio.Put("AllDirectories/1.txt", "Goravel"))
+	s.Nil(s.minio.Put("AllDirectories/2.txt", "Goravel"))
+	s.Nil(s.minio.Put("AllDirectories/3/3.txt", "Goravel"))
+	s.Nil(s.minio.Put("AllDirectories/3/5/6/6.txt", "Goravel"))
+	s.Nil(s.minio.MakeDirectory("AllDirectories/3/4"))
+	s.True(s.minio.Exists("AllDirectories/1.txt"))
+	s.True(s.minio.Exists("AllDirectories/2.txt"))
+	s.True(s.minio.Exists("AllDirectories/3/3.txt"))
+	s.True(s.minio.Exists("AllDirectories/3/4/"))
+	s.True(s.minio.Exists("AllDirectories/"))
+	s.True(s.minio.Exists("AllDirectories/3/"))
+	s.True(s.minio.Exists("AllDirectories/3/5/"))
+	s.True(s.minio.Exists("AllDirectories/3/5/6/"))
+	s.True(s.minio.Exists("AllDirectories/3/5/6/6.txt"))
+	files, err := s.minio.AllDirectories("AllDirectories")
+	s.Nil(err)
+	s.Equal([]string{"3/", "3/4/", "3/5/", "3/5/6/"}, files)
+	files, err = s.minio.AllDirectories("./AllDirectories")
+	s.Nil(err)
+	s.Equal([]string{"3/", "3/4/", "3/5/", "3/5/6/"}, files)
+	files, err = s.minio.AllDirectories("/AllDirectories")
+	s.Nil(err)
+	s.Equal([]string{"3/", "3/4/", "3/5/", "3/5/6/"}, files)
+	files, err = s.minio.AllDirectories("./AllDirectories/")
+	s.Nil(err)
+	s.Equal([]string{"3/", "3/4/", "3/5/", "3/5/6/"}, files)
+	s.Nil(s.minio.DeleteDirectory("AllDirectories"))
+}
+
+func (s *MinioTestSuite) TestAllFiles() {
+	s.Nil(s.minio.Put("AllFiles/1.txt", "Goravel"))
+	s.Nil(s.minio.Put("AllFiles/2.txt", "Goravel"))
+	s.Nil(s.minio.Put("AllFiles/3/3.txt", "Goravel"))
+	s.Nil(s.minio.Put("AllFiles/3/4/4.txt", "Goravel"))
+	s.True(s.minio.Exists("AllFiles/1.txt"))
+	s.True(s.minio.Exists("AllFiles/2.txt"))
+	s.True(s.minio.Exists("AllFiles/3/3.txt"))
+	s.True(s.minio.Exists("AllFiles/3/4/4.txt"))
+	files, err := s.minio.AllFiles("AllFiles")
+	s.Nil(err)
+	s.Equal([]string{"1.txt", "2.txt", "3/3.txt", "3/4/4.txt"}, files)
+	files, err = s.minio.AllFiles("./AllFiles")
+	s.Nil(err)
+	s.Equal([]string{"1.txt", "2.txt", "3/3.txt", "3/4/4.txt"}, files)
+	files, err = s.minio.AllFiles("/AllFiles")
+	s.Nil(err)
+	s.Equal([]string{"1.txt", "2.txt", "3/3.txt", "3/4/4.txt"}, files)
+	files, err = s.minio.AllFiles("./AllFiles/")
+	s.Nil(err)
+	s.Equal([]string{"1.txt", "2.txt", "3/3.txt", "3/4/4.txt"}, files)
+	s.Nil(s.minio.DeleteDirectory("AllFiles"))
+}
+
+func (s *MinioTestSuite) TestCopy() {
+	s.Nil(s.minio.Put("Copy/1.txt", "Goravel"))
+	s.True(s.minio.Exists("Copy/1.txt"))
+	s.Nil(s.minio.Copy("Copy/1.txt", "Copy1/1.txt"))
+	s.True(s.minio.Exists("Copy/1.txt"))
+	s.True(s.minio.Exists("Copy1/1.txt"))
+	s.Nil(s.minio.DeleteDirectory("Copy"))
+	s.Nil(s.minio.DeleteDirectory("Copy1"))
+}
+
+func (s *MinioTestSuite) TestDelete() {
+	s.Nil(s.minio.Put("Delete/1.txt", "Goravel"))
+	s.True(s.minio.Exists("Delete/1.txt"))
+	s.Nil(s.minio.Delete("Delete/1.txt"))
+	s.True(s.minio.Missing("Delete/1.txt"))
+	s.Nil(s.minio.DeleteDirectory("Delete"))
+}
+
+func (s *MinioTestSuite) TestDeleteDirectory() {
+	s.Nil(s.minio.Put("DeleteDirectory/1.txt", "Goravel"))
+	s.True(s.minio.Exists("DeleteDirectory/1.txt"))
+	s.Nil(s.minio.DeleteDirectory("DeleteDirectory"))
+	s.True(s.minio.Missing("DeleteDirectory/1.txt"))
+	s.Nil(s.minio.DeleteDirectory("DeleteDirectory"))
+}
+
+func (s *MinioTestSuite) TestDirectories() {
+	s.Nil(s.minio.Put("Directories/1.txt", "Goravel"))
+	s.Nil(s.minio.Put("Directories/2.txt", "Goravel"))
+	s.Nil(s.minio.Put("Directories/3/3.txt", "Goravel"))
+	s.Nil(s.minio.Put("Directories/3/5/5.txt", "Goravel"))
+	s.Nil(s.minio.MakeDirectory("Directories/3/4"))
+	s.True(s.minio.Exists("Directories/1.txt"))
+	s.True(s.minio.Exists("Directories/2.txt"))
+	s.True(s.minio.Exists("Directories/3/3.txt"))
+	s.True(s.minio.Exists("Directories/3/4/"))
+	s.True(s.minio.Exists("Directories/3/5/5.txt"))
+	files, err := s.minio.Directories("Directories")
+	s.Nil(err)
+	s.Equal([]string{"3/"}, files)
+	files, err = s.minio.Directories("./Directories")
+	s.Nil(err)
+	s.Equal([]string{"3/"}, files)
+	files, err = s.minio.Directories("/Directories")
+	s.Nil(err)
+	s.Equal([]string{"3/"}, files)
+	files, err = s.minio.Directories("./Directories/")
+	s.Nil(err)
+	s.Equal([]string{"3/"}, files)
+	s.Nil(s.minio.DeleteDirectory("Directories"))
+}
+
+func (s *MinioTestSuite) TestFiles() {
+	s.Nil(s.minio.Put("Files/1.txt", "Goravel"))
+	s.Nil(s.minio.Put("Files/2.txt", "Goravel"))
+	s.Nil(s.minio.Put("Files/3/3.txt", "Goravel"))
+	s.Nil(s.minio.Put("Files/3/4/4.txt", "Goravel"))
+	s.True(s.minio.Exists("Files/1.txt"))
+	s.True(s.minio.Exists("Files/2.txt"))
+	s.True(s.minio.Exists("Files/3/3.txt"))
+	s.True(s.minio.Exists("Files/3/4/4.txt"))
+	files, err := s.minio.Files("Files")
+	s.Nil(err)
+	s.Equal([]string{"1.txt", "2.txt"}, files)
+	files, err = s.minio.Files("./Files")
+	s.Nil(err)
+	s.Equal([]string{"1.txt", "2.txt"}, files)
+	files, err = s.minio.Files("/Files")
+	s.Nil(err)
+	s.Equal([]string{"1.txt", "2.txt"}, files)
+	files, err = s.minio.Files("./Files/")
+	s.Nil(err)
+	s.Equal([]string{"1.txt", "2.txt"}, files)
+	s.Nil(s.minio.DeleteDirectory("Files"))
+}
+
+func (s *MinioTestSuite) TestGet() {
+	s.Nil(s.minio.Put("Get/1.txt", "Goravel"))
+	s.True(s.minio.Exists("Get/1.txt"))
+	data, err := s.minio.Get("Get/1.txt")
+	s.Nil(err)
+	s.Equal("Goravel", data)
+	length, err := s.minio.Size("Get/1.txt")
+	s.Nil(err)
+	s.Equal(int64(7), length)
+	s.Nil(s.minio.DeleteDirectory("Get"))
+}
+
+func (s *MinioTestSuite) TestGetBytes() {
+	s.Nil(s.minio.Put("GetBytes/1.txt", "Goravel"))
+	s.True(s.minio.Exists("GetBytes/1.txt"))
+	data, err := s.minio.GetBytes("GetBytes/1.txt")
+	s.Nil(err)
+	s.Equal([]byte("Goravel"), data)
+	length, err := s.minio.Size("GetBytes/1.txt")
+	s.Nil(err)
+	s.Equal(int64(7), length)
+	s.Nil(s.minio.DeleteDirectory("GetBytes"))
+}
+
+func (s *MinioTestSuite) TestLastModified() {
+	s.Nil(s.minio.Put("LastModified/1.txt", "Goravel"))
+	s.True(s.minio.Exists("LastModified/1.txt"))
+	date, err := s.minio.LastModified("LastModified/1.txt")
+	s.Nil(err)
+
+	l, err := time.LoadLocation("UTC")
+	s.Nil(err)
+	s.Equal(time.Now().In(l).Format("2006-01-02 15"), date.Format("2006-01-02 15"))
+	s.Nil(s.minio.DeleteDirectory("LastModified"))
+}
+
+func (s *MinioTestSuite) TestMakeDirectory() {
+	s.Nil(s.minio.MakeDirectory("MakeDirectory1/"))
+	s.Nil(s.minio.MakeDirectory("MakeDirectory2"))
+	s.Nil(s.minio.MakeDirectory("MakeDirectory3/MakeDirectory4"))
+	s.Nil(s.minio.DeleteDirectory("MakeDirectory1"))
+	s.Nil(s.minio.DeleteDirectory("MakeDirectory2"))
+	s.Nil(s.minio.DeleteDirectory("MakeDirectory3"))
+	s.Nil(s.minio.DeleteDirectory("MakeDirectory4"))
+}
+
+func (s *MinioTestSuite) TestMimeType() {
+	s.Nil(s.minio.Put("MimeType/1.txt", "Goravel"))
+	s.True(s.minio.Exists("MimeType/1.txt"))
+	mimeType, err := s.minio.MimeType("MimeType/1.txt")
+	s.Nil(err)
+	mediaType, _, err := mime.ParseMediaType(mimeType)
+	s.Nil(err)
+	s.Equal("text/plain", mediaType)
+
+	fileInfo := &File{path: "logo.png"}
+	path, err := s.minio.PutFile("MimeType", fileInfo)
+	s.Nil(err)
+	s.True(s.minio.Exists(path))
+	mimeType, err = s.minio.MimeType(path)
+	s.Nil(err)
+	s.Equal("image/png", mimeType)
+}
+
+func (s *MinioTestSuite) TestMove() {
+	s.Nil(s.minio.Put("Move/1.txt", "Goravel"))
+	s.True(s.minio.Exists("Move/1.txt"))
+	s.Nil(s.minio.Move("Move/1.txt", "Move1/1.txt"))
+	s.True(s.minio.Missing("Move/1.txt"))
+	s.True(s.minio.Exists("Move1/1.txt"))
+	s.Nil(s.minio.DeleteDirectory("Move"))
+	s.Nil(s.minio.DeleteDirectory("Move1"))
+}
+
+func (s *MinioTestSuite) TestPut() {
+	s.Nil(s.minio.Put("Put/a/b/1.txt", "Goravel"))
+	s.True(s.minio.Exists("Put/"))
+	s.True(s.minio.Exists("Put/a/"))
+	s.True(s.minio.Exists("Put/a/b/"))
+	s.True(s.minio.Exists("Put/a/b/1.txt"))
+	s.True(s.minio.Missing("Put/2.txt"))
+	s.Nil(s.minio.DeleteDirectory("Put"))
+}
+
+func (s *MinioTestSuite) TestPutFile_Image() {
+	fileInfo := &File{path: "logo.png"}
+	path, err := s.minio.PutFile("PutFile1", fileInfo)
+	s.Nil(err)
+	s.True(s.minio.Exists(path))
+	s.Nil(s.minio.DeleteDirectory("PutFile1"))
+}
+
+func (s *MinioTestSuite) TestPutFile_Text() {
+	fileInfo := &File{path: "test.txt"}
+	path, err := s.minio.PutFile("PutFile", fileInfo)
+	s.Nil(err)
+	s.True(s.minio.Exists("PutFile/"))
+	s.True(s.minio.Exists(path))
+	data, err := s.minio.Get(path)
+	s.Nil(err)
+	s.Equal("Goravel", data)
+	s.Nil(s.minio.DeleteDirectory("PutFile"))
+}
+
+func (s *MinioTestSuite) TestPutFileAs_Text() {
+	fileInfo := &File{path: "test.txt"}
+	path, err := s.minio.PutFileAs("PutFileAs", fileInfo, "text")
+	s.Nil(err)
+	s.Equal("PutFileAs/text.txt", path)
+	s.True(s.minio.Exists(path))
+	data, err := s.minio.Get(path)
+	s.Nil(err)
+	s.Equal("Goravel", data)
+
+	path, err = s.minio.PutFileAs("PutFileAs", fileInfo, "text1.txt")
+	s.Nil(err)
+	s.Equal("PutFileAs/text1.txt", path)
+	s.True(s.minio.Exists(path))
+	data, err = s.minio.Get(path)
+	s.Nil(err)
+	s.Equal("Goravel", data)
+
+	s.Nil(s.minio.DeleteDirectory("PutFileAs"))
+}
+
+func (s *MinioTestSuite) TestPutFileAs_Image() {
+	fileInfo := &File{path: "logo.png"}
+	path, err := s.minio.PutFileAs("PutFileAs1", fileInfo, "image")
+	s.Nil(err)
+	s.Equal("PutFileAs1/image.png", path)
+	s.True(s.minio.Exists(path))
+
+	path, err = s.minio.PutFileAs("PutFileAs1", fileInfo, "image1.png")
+	s.Nil(err)
+	s.Equal("PutFileAs1/image1.png", path)
+	s.True(s.minio.Exists(path))
+
+	s.Nil(s.minio.DeleteDirectory("PutFileAs1"))
+}
+
+func (s *MinioTestSuite) TestSize() {
+	s.Nil(s.minio.Put("Size/1.txt", "Goravel"))
+	s.True(s.minio.Exists("Size/1.txt"))
+	length, err := s.minio.Size("Size/1.txt")
+	s.Nil(err)
+	s.Equal(int64(7), length)
+	s.Nil(s.minio.DeleteDirectory("Size"))
+}
+
+func (s *MinioTestSuite) TestTemporaryUrl() {
+	s.Nil(s.minio.Put("TemporaryUrl/1.txt", "Goravel"))
+	s.True(s.minio.Exists("TemporaryUrl/1.txt"))
+	url, err := s.minio.TemporaryUrl("TemporaryUrl/1.txt", time.Now().Add(5*time.Second))
+	s.Nil(err)
+	s.NotEmpty(url)
+	resp, err := http.Get(url)
+	s.Nil(err)
+	content, err := io.ReadAll(resp.Body)
+	s.Nil(resp.Body.Close())
+	s.Nil(err)
+	s.Equal("Goravel", string(content))
+	s.Nil(s.minio.DeleteDirectory("TemporaryUrl"))
+}
+
+func (s *MinioTestSuite) TestUrl() {
+	s.Nil(s.minio.Put("Url/1.txt", "Goravel"))
+	s.True(s.minio.Exists("Url/1.txt"))
+	url := s.minio.url + "/Url/1.txt"
+	s.Equal(url, s.minio.Url("Url/1.txt"))
+	resp, err := http.Get(url)
+	s.Nil(err)
+	content, err := io.ReadAll(resp.Body)
+	s.Nil(resp.Body.Close())
+	s.Nil(err)
+	s.Equal("Goravel", string(content))
+	s.Nil(s.minio.DeleteDirectory("Url"))
 }
 
 type File struct {
@@ -460,112 +491,4 @@ func (f *File) Store(path string) (string, error) {
 
 func (f *File) StoreAs(path string, name string) (string, error) {
 	return "", nil
-}
-
-func pool() (*dockertest.Pool, error) {
-	pool, err := dockertest.NewPool("")
-	if err != nil {
-		return nil, errors.WithMessage(err, "Could not construct pool")
-	}
-
-	if err := pool.Client.Ping(); err != nil {
-		return nil, errors.WithMessage(err, "Could not connect to Docker")
-	}
-
-	return pool, nil
-}
-
-func resource(pool *dockertest.Pool, opts *dockertest.RunOptions) (*dockertest.Resource, error) {
-	return pool.RunWithOptions(opts, func(config *docker.HostConfig) {
-		// set AutoRemove to true so that stopped container goes away by itself
-		config.AutoRemove = true
-		config.RestartPolicy = docker.RestartPolicy{
-			Name: "no",
-		}
-	})
-}
-
-func initMinioDocker(mockConfig *configmock.Config) (*dockertest.Pool, *dockertest.Resource, error) {
-	pool, err := pool()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	key := mockConfig.GetString("filesystems.disks.minio.key")
-	secret := mockConfig.GetString("filesystems.disks.minio.secret")
-	bucket := mockConfig.GetString("filesystems.disks.minio.bucket")
-	resource, err := resource(pool, &dockertest.RunOptions{
-		Repository: "minio/minio",
-		Tag:        "latest",
-		Env: []string{
-			"MINIO_ACCESS_KEY=" + key,
-			"MINIO_SECRET_KEY=" + secret,
-		},
-		Cmd: []string{
-			"server",
-			"/data",
-		},
-		ExposedPorts: []string{
-			"9000/tcp",
-		},
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	_ = resource.Expire(600)
-
-	endpoint := fmt.Sprintf("127.0.0.1:%s", resource.GetPort("9000/tcp"))
-	mockConfig.On("GetString", "filesystems.disks.minio.url").Return(fmt.Sprintf("http://%s/%s", endpoint, bucket))
-	mockConfig.On("GetString", "filesystems.disks.minio.endpoint").Return(endpoint)
-
-	if err := pool.Retry(func() error {
-		client, err := minio.New(endpoint, &minio.Options{
-			Creds: credentials.NewStaticV4(key, secret, ""),
-		})
-		if err != nil {
-			return err
-		}
-
-		if err := client.MakeBucket(context.Background(), bucket, minio.MakeBucketOptions{}); err != nil {
-			return err
-		}
-
-		policy := `{
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Action": [
-                    "s3:GetObject",
-                    "s3:PutObject"
-                ],
-                "Effect": "Allow",
-                "Principal": "*",
-                "Resource": [
-                    "arn:aws:s3:::` + bucket + `/*"
-                ]
-            },
-            {
-                "Action": [
-                    "s3:ListBucket"
-                ],
-                "Effect": "Allow",
-                "Principal": "*",
-                "Resource": [
-                    "arn:aws:s3:::` + bucket + `"
-                ]
-            }
-        ]
-    }`
-
-		if err := client.SetBucketPolicy(context.Background(), bucket, policy); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return nil, nil, err
-	}
-
-	return pool, resource, nil
 }
