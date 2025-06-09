@@ -130,8 +130,8 @@ func (s *MinioTestSuite) SetupSuite() {
 }
 
 func (s *MinioTestSuite) TearDownSuite() {
-	s.Nil(os.Remove("test.txt"))
-	s.docker.Shutdown()
+	s.NoError(os.Remove("test.txt"))
+	s.NoError(s.docker.Shutdown())
 }
 
 func (s *MinioTestSuite) SetupTest() {
