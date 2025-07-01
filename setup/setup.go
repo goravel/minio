@@ -35,8 +35,8 @@ func main() {
 		).
 		Uninstall(
 			modify.GoFile(path.Config("app.go")).
-				Find(match.Imports()).Modify(modify.RemoveImport(packages.GetModulePath())).
-				Find(match.Providers()).Modify(modify.Unregister("&minio.ServiceProvider{}")),
+				Find(match.Providers()).Modify(modify.Unregister("&minio.ServiceProvider{}")).
+				Find(match.Imports()).Modify(modify.RemoveImport(packages.GetModulePath())),
 			modify.GoFile(path.Config("filesystems.go")).
 				Find(match.Config("filesystems.disks")).Modify(modify.RemoveConfig("minio")).
 				Find(match.Imports()).Modify(modify.RemoveImport("github.com/goravel/framework/contracts/filesystem"), modify.RemoveImport("github.com/goravel/minio/facades", "miniofacades")),
