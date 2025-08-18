@@ -232,7 +232,9 @@ func (r *Minio) GetBytes(file string) ([]byte, error) {
 		return nil, err
 	}
 	data, err := io.ReadAll(object)
-	defer object.Close()
+	defer func() {
+		_ = object.Close()
+	}()
 	if err != nil {
 		return nil, err
 	}
