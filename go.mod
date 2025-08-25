@@ -9,7 +9,7 @@ require (
 	github.com/gookit/color v1.5.4
 	github.com/goravel/framework v1.16.1
 	github.com/minio/minio-go/v7 v7.0.95
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 )
 
 require (
