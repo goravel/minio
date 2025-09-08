@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.25.1
 
 require (
-	github.com/gabriel-vasile/mimetype v1.4.9
+	github.com/gabriel-vasile/mimetype v1.4.10
 	github.com/gookit/color v1.5.4
 	github.com/goravel/framework v1.16.1
 	github.com/minio/minio-go/v7 v7.0.95
