@@ -10,15 +10,14 @@ import (
 	"time"
 
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/gookit/color"
-	"github.com/goravel/framework/http"
-	"github.com/goravel/framework/support/carbon"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
-
 	"github.com/goravel/framework/contracts/config"
 	"github.com/goravel/framework/contracts/filesystem"
+	"github.com/goravel/framework/http"
+	"github.com/goravel/framework/support/carbon"
+	"github.com/goravel/framework/support/color"
 	"github.com/goravel/framework/support/str"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 /*
@@ -362,7 +361,7 @@ func (r *Minio) WithContext(ctx context.Context) filesystem.Driver {
 
 	driver, err := NewMinio(ctx, r.config, r.disk)
 	if err != nil {
-		color.Redf("init %s disk fail: %v\n", r.disk, err)
+		color.Red().Printfln("init %s disk fail: %v\n", r.disk, err)
 
 		return nil
 	}

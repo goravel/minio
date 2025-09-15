@@ -6,7 +6,6 @@ toolchain go1.25.1
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.10
-	github.com/gookit/color v1.5.4
 	github.com/goravel/framework v1.16.3
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/stretchr/testify v1.11.0
@@ -27,6 +26,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gookit/color v1.5.4 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jmoiron/sqlx v1.4.0 // indirect
