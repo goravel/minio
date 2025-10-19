@@ -31,7 +31,8 @@ func main() {
 				Find(match.Providers()).Modify(modify.Register("&minio.ServiceProvider{}")),
 			modify.GoFile(path.Config("filesystems.go")).
 				Find(match.Imports()).Modify(modify.AddImport("github.com/goravel/framework/contracts/filesystem"), modify.AddImport("github.com/goravel/minio/facades", "miniofacades")).
-				Find(match.Config("filesystems.disks")).Modify(modify.AddConfig("minio", config)),
+				Find(match.Config("filesystems.disks")).Modify(modify.AddConfig("minio", config)).
+				Find(match.Config("filesystems")).Modify(modify.AddConfig("default", `"minio"`)),
 		).
 		Uninstall(
 			modify.GoFile(path.Config("app.go")).
@@ -39,7 +40,8 @@ func main() {
 				Find(match.Imports()).Modify(modify.RemoveImport(packages.GetModulePath())),
 			modify.GoFile(path.Config("filesystems.go")).
 				Find(match.Config("filesystems.disks")).Modify(modify.RemoveConfig("minio")).
-				Find(match.Imports()).Modify(modify.RemoveImport("github.com/goravel/framework/contracts/filesystem"), modify.RemoveImport("github.com/goravel/minio/facades", "miniofacades")),
+				Find(match.Imports()).Modify(modify.RemoveImport("github.com/goravel/framework/contracts/filesystem"), modify.RemoveImport("github.com/goravel/minio/facades", "miniofacades")).
+				Find(match.Config("filesystems")).Modify(modify.AddConfig("default", `"local"`)),
 		).
 		Execute()
 }
