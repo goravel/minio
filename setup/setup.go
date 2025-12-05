@@ -6,10 +6,12 @@ import (
 	"github.com/goravel/framework/packages"
 	"github.com/goravel/framework/packages/match"
 	"github.com/goravel/framework/packages/modify"
+	"github.com/goravel/framework/support/env"
 	"github.com/goravel/framework/support/path"
 )
 
-var config = `map[string]any{
+func main() {
+	config := `map[string]any{
         "driver": "custom",
         "key":      config.Env("MINIO_ACCESS_KEY_ID"),
         "secret":   config.Env("MINIO_ACCESS_KEY_SECRET"),
@@ -23,25 +25,58 @@ var config = `map[string]any{
         },
     }`
 
-func main() {
+	appConfigPath := path.Config("app.go")
+	filesystemsConfigPath := path.Config("filesystems.go")
+	modulePath := packages.GetModulePath()
+	minioServiceProvider := "&minio.ServiceProvider{}"
+	filesystemContract := "github.com/goravel/framework/contracts/filesystem"
+	minioFacades := "github.com/goravel/minio/facades"
+	filesystemsDisksConfig := match.Config("filesystems.disks")
+	filesystemsConfig := match.Config("filesystems")
+
 	packages.Setup(os.Args).
 		Install(
-			modify.GoFile(path.Config("app.go")).
-				Find(match.Imports()).Modify(modify.AddImport(packages.GetModulePath())).
-				Find(match.Providers()).Modify(modify.Register("&minio.ServiceProvider{}")),
-			modify.GoFile(path.Config("filesystems.go")).
-				Find(match.Imports()).Modify(modify.AddImport("github.com/goravel/framework/contracts/filesystem"), modify.AddImport("github.com/goravel/minio/facades", "miniofacades")).
-				Find(match.Config("filesystems.disks")).Modify(modify.AddConfig("minio", config)).
-				Find(match.Config("filesystems")).Modify(modify.AddConfig("default", `"minio"`)),
+			// Add minio service provider to app.go if not using bootstrap setup
+			modify.When(func(_ map[string]any) bool {
+				return !env.IsBootstrapSetup()
+			}, modify.GoFile(appConfigPath).
+				Find(match.Imports()).Modify(modify.AddImport(modulePath)).
+				Find(match.Providers()).Modify(modify.Register(minioServiceProvider))),
+
+			// Add minio service provider to providers.go if using bootstrap setup
+			modify.When(func(_ map[string]any) bool {
+				return env.IsBootstrapSetup()
+			}, modify.AddProviderApply(modulePath, minioServiceProvider)),
+
+			// Add minio disk to filesystems.go
+			modify.GoFile(filesystemsConfigPath).Find(match.Imports()).Modify(
+				modify.AddImport(filesystemContract),
+				modify.AddImport(minioFacades, "miniofacades"),
+			).
+				Find(filesystemsDisksConfig).Modify(modify.AddConfig("minio", config)).
+				Find(filesystemsConfig).Modify(modify.AddConfig("default", `"minio"`)),
 		).
 		Uninstall(
-			modify.GoFile(path.Config("app.go")).
-				Find(match.Providers()).Modify(modify.Unregister("&minio.ServiceProvider{}")).
-				Find(match.Imports()).Modify(modify.RemoveImport(packages.GetModulePath())),
-			modify.GoFile(path.Config("filesystems.go")).
-				Find(match.Config("filesystems.disks")).Modify(modify.RemoveConfig("minio")).
-				Find(match.Imports()).Modify(modify.RemoveImport("github.com/goravel/framework/contracts/filesystem"), modify.RemoveImport("github.com/goravel/minio/facades", "miniofacades")).
-				Find(match.Config("filesystems")).Modify(modify.AddConfig("default", `"local"`)),
+			// Remove minio disk from filesystems.go
+			modify.GoFile(filesystemsConfigPath).
+				Find(filesystemsConfig).Modify(modify.AddConfig("default", `"local"`)).
+				Find(filesystemsDisksConfig).Modify(modify.RemoveConfig("minio")).
+				Find(match.Imports()).Modify(
+				modify.RemoveImport(filesystemContract),
+				modify.RemoveImport(minioFacades, "miniofacades"),
+			),
+
+			// Remove minio service provider from app.go if not using bootstrap setup
+			modify.When(func(_ map[string]any) bool {
+				return !env.IsBootstrapSetup()
+			}, modify.GoFile(appConfigPath).
+				Find(match.Providers()).Modify(modify.Unregister(minioServiceProvider)).
+				Find(match.Imports()).Modify(modify.RemoveImport(modulePath))),
+
+			// Remove minio service provider from providers.go if using bootstrap setup
+			modify.When(func(_ map[string]any) bool {
+				return env.IsBootstrapSetup()
+			}, modify.RemoveProviderApply(modulePath, minioServiceProvider)),
 		).
 		Execute()
 }
