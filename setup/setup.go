@@ -57,13 +57,13 @@ func main() {
 			Find(filesystemsConfig).Modify(modify.AddConfig("default", `"minio"`)),
 	).Uninstall(
 		// Remove minio disk from filesystems.go
-		modify.GoFile(filesystemsConfigPath).
+		modify.WhenFileExists(filesystemsConfigPath, modify.GoFile(filesystemsConfigPath).
 			Find(filesystemsConfig).Modify(modify.AddConfig("default", `"local"`)).
 			Find(filesystemsDisksConfig).Modify(modify.RemoveConfig("minio")).
 			Find(match.Imports()).Modify(
 			modify.RemoveImport(filesystemContract),
 			modify.RemoveImport(minioFacades, "miniofacades"),
-		),
+		)),
 
 		// Remove minio service provider from app.go if not using bootstrap setup
 		modify.When(func(_ map[string]any) bool {
