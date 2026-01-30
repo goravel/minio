@@ -13,6 +13,7 @@ import (
 	filesystemcontract "github.com/goravel/framework/contracts/filesystem"
 	contractsdocker "github.com/goravel/framework/contracts/testing/docker"
 	configmock "github.com/goravel/framework/mocks/config"
+	"github.com/goravel/framework/process"
 	supportdocker "github.com/goravel/framework/support/docker"
 	testingdocker "github.com/goravel/framework/testing/docker"
 	"github.com/minio/minio-go/v7"
@@ -52,7 +53,7 @@ func (s *MinioTestSuite) SetupSuite() {
 		ExposedPorts: []string{
 			"9000",
 		},
-	})
+	}, process.New())
 	err := docker.Build()
 	if err != nil {
 		panic(err)
