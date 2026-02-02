@@ -46,7 +46,7 @@ func main() {
 		// Add minio service provider to providers.go if using bootstrap setup
 		modify.When(func(_ map[string]any) bool {
 			return env.IsBootstrapSetup()
-		}, modify.AddProviderApply(moduleImport, minioServiceProvider)),
+		}, modify.RegisterProvider(moduleImport, minioServiceProvider)),
 
 		// Add minio disk to filesystems.go
 		modify.GoFile(filesystemsConfigPath).Find(match.Imports()).Modify(
@@ -75,6 +75,6 @@ func main() {
 		// Remove minio service provider from providers.go if using bootstrap setup
 		modify.When(func(_ map[string]any) bool {
 			return env.IsBootstrapSetup()
-		}, modify.RemoveProviderApply(moduleImport, minioServiceProvider)),
+		}, modify.UnregisterProvider(moduleImport, minioServiceProvider)),
 	).Execute()
 }
