@@ -6,7 +6,7 @@ toolchain go1.26.4
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.13
-	github.com/goravel/framework v1.18.0
+	github.com/goravel/framework v1.17.2-0.20260704091648-a554ced468ca
 	github.com/minio/minio-go/v7 v7.2.1
 	github.com/stretchr/testify v1.11.1
 )
