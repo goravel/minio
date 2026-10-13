@@ -43,12 +43,14 @@ func (s *MinioTestSuite) SetupSuite() {
 
 	s.mockConfig = configmock.NewConfig(s.T())
 	docker := testingdocker.NewImageDriver(contractsdocker.Image{
-		Repository: "minio/minio",
+		// MinIO removed its official images from Docker Hub (minio/minio now 404s),
+		// so use a maintained community rebuild of the last official release.
+		Repository: "coollabsio/minio",
 		Tag:        "latest",
 		Cmd:        []string{"server", "/data"},
 		Env: []string{
-			"MINIO_ACCESS_KEY=" + testKey,
-			"MINIO_SECRET_KEY=" + testSecret,
+			"MINIO_ROOT_USER=" + testKey,
+			"MINIO_ROOT_PASSWORD=" + testSecret,
 		},
 		ExposedPorts: []string{
 			"9000",
