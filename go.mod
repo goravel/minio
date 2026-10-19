@@ -5,7 +5,7 @@ go 1.25.0
 toolchain go1.27.2
 
 require (
-	github.com/gabriel-vasile/mimetype v1.4.15
+	github.com/gabriel-vasile/mimetype v1.4.16
 	github.com/goravel/framework v1.18.0
 	github.com/minio/minio-go/v7 v7.3.0
 	github.com/stretchr/testify v1.12.1
